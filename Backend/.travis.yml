@@ -1,0 +1,48 @@
+# use the latest ubuntu environment (18.04) available on travis
+dist: xenial
+
+language: go
+
+
+go:
+- 1.12.5
+- tip
+
+git:
+depth: 1
+
+# Skip the install step. Don't `go get` dependencies. Only build with the
+# code in vendor/
+install: true
+
+matrix:
+  # It's ok if our code fails on unstable development versions of Go.
+  allow_failures:
+  - go: tip
+  # Don't wait for tip tests to finish. Mark the test run green if the
+  # tests pass on the stable versions of Go.
+  fast_finish: true
+
+# Don't email me the results of the test runs.
+notifications:
+  email: false
+
+before_install:
+- curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+- dep ensure
+
+# Anything in before_script that returns a nonzero exit code will
+# flunk the build and immediately stop. It's sorta like having
+# set -e enabled in bash.
+before_script:
+- GO_FILES=$(find . -iname '*.go' -type f | grep -v /vendor/) # All the .go files, excluding vendor/
+- go get golang.org/x/lint/golint                             # Linter
+- go get github.com/fzipp/gocyclo
+- go get github.com/golangci/golangci-lint/cmd/golangci-lint
+- go install github.com/golangci/golangci-lint/cmd/golangci-lint
+
+# script always run to completion (set +e). All of these code checks are must haves
+# in a modern Go project.
+script:
+- golangci-lint run       # run a bunch of code checkers/linters in parallel
+- go test -v ./...
